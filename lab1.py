@@ -1,6 +1,10 @@
+from typing import List
+from matplotlib.axes import Axes
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from scipy.io import wavfile
+matplotlib.rcParams['figure.figsize'] = (15, 20)
 
 def compute_dft(input_signal):
   N = len(input_signal)
@@ -20,7 +24,65 @@ def compute_dft(input_signal):
       
   return output
 
-def my_fftfreq(n, d=1.0):
+def inverse_dft(input_signal):
+    return np.conj(compute_dft(np.conj(input_signal))) / len(input_signal)
+
+def fft(x):
+    x = np.asarray(x, dtype=complex)
+    N = x.shape[0]
+    
+    if (N & (N - 1) == 0) and N > 0:
+        bits = int(np.log2(N))
+        idxs = [int(f"{i:0{bits}b}"[::-1], 2) for i in range(N)]
+        x = x[idxs]
+        
+        width = 2
+        while width <= N:
+            half_width = width // 2
+            k = np.arange(half_width)
+            factor = np.exp(-2j * np.pi * k / width)
+            
+            for i in range(0, N, width):
+                even = x[i : i + half_width]
+                odd = x[i + half_width : i + width]
+                
+                twiddled_odd = factor * odd
+                sum_val = even + twiddled_odd
+                sub_val = even - twiddled_odd
+                
+                x[i : i + half_width] = sum_val
+                x[i + half_width : i + width] = sub_val
+
+            width *= 2
+        return x
+    else:
+        n = np.arange(N)
+        k = n.reshape((N, 1))
+        M = np.exp(-2j * np.pi * k * n / N)
+        return np.dot(M, x)
+
+def ifft(x):
+    return np.conj(fft(np.conj(x))) / len(x)
+
+def fft_convolute(a, b):
+    n_a = len(a)
+    n_b = len(b)
+    target_length = n_a + n_b - 1
+    
+    a_padded = np.zeros(target_length, dtype=complex)
+    b_padded = np.zeros(target_length, dtype=complex)
+    a_padded[:n_a] = a
+    b_padded[:n_b] = b
+    
+    A = fft(a_padded)
+    B = fft(b_padded)
+
+    convolved_freq = A * B
+    convolved_time = ifft(convolved_freq)
+    
+    return np.real(convolved_time)
+
+def freq(n, d=1.0):
     val = 1.0 / (n * d)
     results = [0] * n
     N = (n - 1) // 2 + 1
@@ -36,12 +98,6 @@ def get_phase_spectrum(dft_result):
         phase = np.atan2(x.imag, x.real)
         phases.append(phase)
     return phases
-
-n = 1024
-sample_rate = 44100
-d = 1 / sample_rate
-
-frequencies = my_fftfreq(n, d)
 
 fx0 = 440
 ax = [1, 0.4, 0.2, 0.1]
@@ -65,40 +121,83 @@ for i in range(len(ax)):
 for i in range(len(ay)):
     s1 += ay[i] * np.sin(2 * np.pi * hy[i] * fy0 * t + phiy)
 
-# amplitude = np.iinfo(np.int16).max
-# data = (s0 * amplitude).astype(np.int16)
+fig, subplots = plt.subplots(nrows=7, ncols=3)
 
-# wavfile.write("my_signal.wav", sample_rate, data)
-# print("Файл сохранен!")
+def plot(
+        s,
+        fn_plot: Axes,
+        amplitude_plot: Axes,
+        phase_plot: Axes,
+        inv_plot: Axes,
+        fft_amplitude_plot: Axes,
+        fft_phase_plot: Axes,
+        fft_inv_plot: Axes,
+    ):
+    frequencies = freq(len(s), 1 / sample_rate)
+    
+    dft_result = compute_dft(s)
+    amplitude_spectrum = np.abs(dft_result)
+    phase = get_phase_spectrum(dft_result)
+    inv = inverse_dft(dft_result)
 
-# 1
-plt.subplot(5, 1, 1)
-plt.plot(t, s0)
-plt.title("x(t)")
+    fft_result = fft(s)
+    fft_amplitude_spectrum = np.abs(fft_result)
+    fft_phase = get_phase_spectrum(fft_result)
+    fft_inv = ifft(dft_result)
+    
+    fn_plot.plot(t, s)
+    fn_plot.set_title("s(t)")
+    
+    amplitude_plot.plot(frequencies[:len(s) // 2], amplitude_spectrum[:len(s) // 2])
+    amplitude_plot.set_title("ДПФ: амплитудный спектр")
+    amplitude_plot.set_xlim(0, 2000)
 
-# 2
-plt.subplot(5, 1, 2)
-plt.plot(t, s1)
-plt.title("y(t)")
+    phase_plot.plot(frequencies[:len(s) // 2], phase[:len(s) // 2])
+    phase_plot.set_title("ДПФ: фазовый спектр")
+    phase_plot.set_xlim(0, 2000)
 
-# 3
-fft_result = compute_dft(s0)
-amplitude_spectrum = np.abs(fft_result)
-frequencies = my_fftfreq(len(s0), 1/sample_rate)
-plt.subplot(5, 1, 3)
-plt.plot(frequencies[:len(s0)//2], amplitude_spectrum[:len(s0)//2])
-plt.xlim(0, 2000)
+    inv_plot.plot(t, np.real(inv))
+    inv_plot.set_title("ОДПФ")
 
-# 4
+    fft_amplitude_plot.plot(frequencies[:len(s) // 2], fft_amplitude_spectrum[:len(s) // 2])
+    fft_amplitude_plot.set_xlim(0, 2000)
+    fft_amplitude_plot.set_title("БПФ: амплитудный спектр")
 
-phase = get_phase_spectrum(fft_result)
-plt.subplot(5, 1, 4)
-plt.plot(frequencies[:len(s0)//2], phase[:len(s0)//2])
-plt.xlim(0, 2000)
+    fft_phase_plot.plot(frequencies[:len(s) // 2], fft_phase[:len(s) // 2])
+    fft_phase_plot.set_title("БПФ: фазовый спектр")
+    fft_phase_plot.set_xlim(0, 2000)
 
-# 4
-s0inv = np.fft.ifft(s0) #s0 or fft_result
-plt.subplot(5, 1, 5)
-plt.plot(t, np.real(s0inv))
+    fft_inv_plot.plot(t, np.real(fft_inv))
+    fft_inv_plot.set_title("ОБПФ")
 
+
+plot(
+    s=s0,
+    fn_plot=subplots[0][0],
+    amplitude_plot=subplots[1][0],
+    phase_plot=subplots[2][0],
+    inv_plot=subplots[3][0],
+    fft_amplitude_plot=subplots[4][0],
+    fft_phase_plot=subplots[5][0],
+    fft_inv_plot=subplots[6][0],
+)
+
+plot(
+    s=s1,
+    fn_plot=subplots[0][1],
+    amplitude_plot=subplots[1][1],
+    phase_plot=subplots[2][1],
+    inv_plot=subplots[3][1],
+    fft_amplitude_plot=subplots[4][1],
+    fft_phase_plot=subplots[5][1],
+    fft_inv_plot=subplots[6][1],
+)
+
+delta = np.zeros(8)
+delta[0] = 1
+delta_fft = fft(delta)
+
+subplots[0][2].plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
+
+plt.savefig("test.svg")
 plt.show()
