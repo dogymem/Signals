@@ -93,6 +93,52 @@ def fft_convolute(a, b):
     
     return np.real(convolved_time)
 
+def correlation(a, b):
+    b = np.conj(b)
+    N = len(a)
+    M = len(b)
+    full_len = N + M - 1
+    full_result = np.zeros(full_len, dtype=complex)
+    for i in range(full_len):
+        lag = i - (M - 1)
+        start_j = max(0, lag)
+        end_j = min(N, lag + M)
+        
+        current_sum = 0
+        for j in range(start_j, end_j):
+            current_sum += a[j] * b[j - lag]
+            
+        full_result[i] = current_sum
+
+    target_len = max(N, M)
+    start = (full_len - target_len) // 2
+    return full_result[start : start + target_len]
+
+def fft_correlation(a, b):
+    N = len(a)
+    M = len(b)
+
+    b_rev = np.conj(b[::-1])
+
+    full_len = N + M - 1
+    
+    a_pad = np.zeros(full_len, dtype=complex)
+    b_pad = np.zeros(full_len, dtype=complex)
+    a_pad[:N] = a
+    b_pad[:M] = b_rev
+    
+    conv_freq = fft(a_pad) * fft(b_pad)
+    conv_time = ifft(conv_freq)
+    
+    full_result = np.real(conv_time[:full_len])
+    
+    target_len = max(N, M)
+    
+    start_index = (full_len - target_len) // 2
+    end_index = start_index + target_len
+    
+    return full_result[start_index : end_index]
+
 def freq(n, d=1.0):
     val = 1.0 / (n * d)
     results = [0] * n
@@ -132,7 +178,7 @@ for i in range(len(ax)):
 for i in range(len(ay)):
     s1 += ay[i] * np.sin(2 * np.pi * hy[i] * fy0 * t + phiy)
 
-fig, subplots = plt.subplots(nrows=7, ncols=3)
+# fig, subplots = plt.subplots(nrows=7, ncols=3)
 
 def plot(
         s,
@@ -143,6 +189,8 @@ def plot(
         fft_amplitude_plot: Axes,
         fft_phase_plot: Axes,
         fft_inv_plot: Axes,
+        np_amplitude_plot: Axes,
+        np_phase_plot: Axes,
     ):
     frequencies = freq(len(s), 1 / sample_rate)
     
@@ -156,6 +204,10 @@ def plot(
     fft_phase = get_phase_spectrum(fft_result)
     fft_inv = ifft(dft_result)
     
+    np_fft_result = np.fft.fft(s)
+    np_fft_amplitude_spectrum = np.abs(np_fft_result)
+    np_fft_phase = np.angle(np_fft_result)
+
     fn_plot.plot(t, s)
     fn_plot.set_title("s(t)")
     
@@ -181,31 +233,65 @@ def plot(
     fft_inv_plot.plot(t, np.real(fft_inv))
     fft_inv_plot.set_title("ОБПФ")
 
+    np_amplitude_plot.plot(frequencies[:len(s) // 2], np_fft_amplitude_spectrum[:len(s) // 2])
+    np_amplitude_plot.set_xlim(0, 2000)
+    np_amplitude_plot.set_title("БПФ: амплитудный спектр (numpy)")
+    
+    np_phase_plot.plot(frequencies[:len(s) // 2], np_fft_phase[:len(s) // 2])
+    np_phase_plot.set_title("БПФ: фазовый спектр (numpy)")
+    np_phase_plot.set_xlim(0, 2000)
 
 plot(
     s=s0,
-    fn_plot=subplots[0][0],
-    amplitude_plot=subplots[1][0],
-    phase_plot=subplots[2][0],
-    inv_plot=subplots[3][0],
-    fft_amplitude_plot=subplots[4][0],
-    fft_phase_plot=subplots[5][0],
-    fft_inv_plot=subplots[6][0],
+    fn_plot=plt.subplot2grid((7, 4), (0, 0)),
+    amplitude_plot=plt.subplot2grid((7, 4), (1, 0)),
+    phase_plot=plt.subplot2grid((7, 4), (2, 0)),
+    inv_plot=plt.subplot2grid((7, 4), (3, 0)),
+    fft_amplitude_plot=plt.subplot2grid((7, 4), (4, 0)),
+    fft_phase_plot=plt.subplot2grid((7, 4), (5, 0)),
+    fft_inv_plot=plt.subplot2grid((7, 4), (6, 0)),
+    np_amplitude_plot=plt.subplot2grid((7, 4), (0, 3)),
+    np_phase_plot=plt.subplot2grid((7, 4), (1, 3)),
 )
 
 plot(
     s=s1,
-    fn_plot=subplots[0][1],
-    amplitude_plot=subplots[1][1],
-    phase_plot=subplots[2][1],
-    inv_plot=subplots[3][1],
-    fft_amplitude_plot=subplots[4][1],
-    fft_phase_plot=subplots[5][1],
-    fft_inv_plot=subplots[6][1],
+    fn_plot=plt.subplot2grid((7, 4), (0, 1)),
+    amplitude_plot=plt.subplot2grid((7, 4), (1, 1)),
+    phase_plot=plt.subplot2grid((7, 4), (2, 1)),
+    inv_plot=plt.subplot2grid((7, 4), (3, 1)),
+    fft_amplitude_plot=plt.subplot2grid((7, 4), (4, 1)),
+    fft_phase_plot=plt.subplot2grid((7, 4), (5, 1)),
+    fft_inv_plot=plt.subplot2grid((7, 4), (6, 1)),
+    np_amplitude_plot=plt.subplot2grid((7, 4), (2, 3)),
+    np_phase_plot=plt.subplot2grid((7, 4), (3, 3)),
 )
 
-subplots[0][2].plot(np.arange(2 * len(t) - 1) * sample_rate, lin_convolute(s0, s1))
-subplots[1][2].plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
 
+lin_conv_plot = plt.subplot2grid((7, 4), (0, 2))
+lin_conv_plot.plot(np.arange(2 * len(t) - 1) * sample_rate, lin_convolute(s0, s1))
+lin_conv_plot.set_title("Свертка (линейная)")
+
+fft_conv_plot = plt.subplot2grid((7, 4), (2, 2))
+fft_conv_plot.plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
+fft_conv_plot.set_title("Свертка (БПФ)")
+
+lin_corr_plot = plt.subplot2grid((7, 4), (4, 2))
+lin_corr_plot.plot(t, correlation(s0, s1))
+lin_corr_plot.set_title("Корреляция (прямая)")
+
+fft_corr_plot = plt.subplot2grid((7, 4), (6, 2))
+fft_corr_plot.plot(t, fft_correlation(s0, s1))
+fft_corr_plot.set_title("Корреляция (БПФ)")
+
+np_conv_plot = plt.subplot2grid((7, 4), (4, 3))
+np_conv_plot.plot(np.arange(2 * len(t) - 1) * sample_rate, np.convolve(s0, s1, mode="full"))
+np_conv_plot.set_title("Свертка (numpy)")
+
+np_corr_plot = plt.subplot2grid((7, 4), (5, 3))
+np_corr_plot.plot(t, np.correlate(s0, s1, mode="same"))
+np_corr_plot.set_title("Корреляция (numpy)")
+
+plt.tight_layout()
 plt.savefig("test.svg")
 plt.show()
