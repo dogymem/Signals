@@ -1,9 +1,7 @@
-from typing import List
 from matplotlib.axes import Axes
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from scipy.io import wavfile
 matplotlib.rcParams['figure.figsize'] = (15, 20)
 
 def compute_dft(input_signal):
@@ -205,10 +203,6 @@ plot(
     fft_phase_plot=subplots[5][1],
     fft_inv_plot=subplots[6][1],
 )
-
-delta = np.zeros(8)
-delta[0] = 1
-delta_fft = fft(delta)
 
 subplots[0][2].plot(np.arange(2 * len(t) - 1) * sample_rate, lin_convolute(s0, s1))
 subplots[1][2].plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
