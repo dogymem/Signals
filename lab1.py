@@ -64,6 +64,19 @@ def fft(x):
 def ifft(x):
     return np.conj(fft(np.conj(x))) / len(x)
 
+def lin_convolute(a, b):
+    N = len(a)
+    M = len(b)
+    target_length = N + M - 1
+    s = [0] * target_length
+
+    for n in range(target_length):
+        for m in range(N):
+            if 0 <= n - m < M:
+                s[n] += a[m] * b[n - m]
+            
+    return s
+
 def fft_convolute(a, b):
     n_a = len(a)
     n_b = len(b)
@@ -197,7 +210,8 @@ delta = np.zeros(8)
 delta[0] = 1
 delta_fft = fft(delta)
 
-subplots[0][2].plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
+subplots[0][2].plot(np.arange(2 * len(t) - 1) * sample_rate, lin_convolute(s0, s1))
+subplots[1][2].plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
 
 plt.savefig("test.svg")
 plt.show()
