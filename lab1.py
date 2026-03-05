@@ -190,6 +190,7 @@ def plot(
         np_amplitude_plot: Axes,
         np_phase_plot: Axes,
     ):
+    xlim = 2500
     frequencies = freq(len(s), 1 / sample_rate)
     
     dft_result = compute_dft(s)
@@ -211,82 +212,91 @@ def plot(
     
     amplitude_plot.plot(frequencies[:len(s) // 2], amplitude_spectrum[:len(s) // 2])
     amplitude_plot.set_title("ДПФ: амплитудный спектр")
-    amplitude_plot.set_xlim(0, 2000)
+    amplitude_plot.set_xlim(0, xlim)
 
     phase_plot.plot(frequencies[:len(s) // 2], phase[:len(s) // 2])
     phase_plot.set_title("ДПФ: фазовый спектр")
-    phase_plot.set_xlim(0, 2000)
+    phase_plot.set_xlim(0, xlim)
 
     inv_plot.plot(t, np.real(inv))
     inv_plot.set_title("ОДПФ")
 
     fft_amplitude_plot.plot(frequencies[:len(s) // 2], fft_amplitude_spectrum[:len(s) // 2])
-    fft_amplitude_plot.set_xlim(0, 2000)
+    fft_amplitude_plot.set_xlim(0, xlim)
     fft_amplitude_plot.set_title("БПФ: амплитудный спектр")
 
     fft_phase_plot.plot(frequencies[:len(s) // 2], fft_phase[:len(s) // 2])
     fft_phase_plot.set_title("БПФ: фазовый спектр")
-    fft_phase_plot.set_xlim(0, 2000)
+    fft_phase_plot.set_xlim(0, xlim)
 
     fft_inv_plot.plot(t, np.real(fft_inv))
     fft_inv_plot.set_title("ОБПФ")
 
     np_amplitude_plot.plot(frequencies[:len(s) // 2], np_fft_amplitude_spectrum[:len(s) // 2])
-    np_amplitude_plot.set_xlim(0, 2000)
+    np_amplitude_plot.set_xlim(0, xlim)
     np_amplitude_plot.set_title("БПФ: амплитудный спектр (numpy)")
     
     np_phase_plot.plot(frequencies[:len(s) // 2], np_fft_phase[:len(s) // 2])
     np_phase_plot.set_title("БПФ: фазовый спектр (numpy)")
-    np_phase_plot.set_xlim(0, 2000)
+    np_phase_plot.set_xlim(0, xlim)
+
+fig_x, axes_x = plt.subplots(4, 2, figsize=(12, 8))
+fig_x.tight_layout()
+fig_y, axes_y = plt.subplots(4, 2, figsize=(12, 8))
+fig_y.tight_layout()
+fig_cor, axes_cor = plt.subplots(2, 2, figsize=(12, 8))
+fig_cor.tight_layout()
+fig_np, axes_np = plt.subplots(3, 2, figsize=(12, 8))
+fig_np.tight_layout()
+
 
 plot(
     s=s0,
-    fn_plot=plt.subplot2grid((7, 4), (0, 0)),
-    amplitude_plot=plt.subplot2grid((7, 4), (1, 0)),
-    phase_plot=plt.subplot2grid((7, 4), (2, 0)),
-    inv_plot=plt.subplot2grid((7, 4), (3, 0)),
-    fft_amplitude_plot=plt.subplot2grid((7, 4), (4, 0)),
-    fft_phase_plot=plt.subplot2grid((7, 4), (5, 0)),
-    fft_inv_plot=plt.subplot2grid((7, 4), (6, 0)),
-    np_amplitude_plot=plt.subplot2grid((7, 4), (0, 3)),
-    np_phase_plot=plt.subplot2grid((7, 4), (1, 3)),
+    fn_plot=axes_x[0, 0],
+    amplitude_plot=axes_x[1, 0],
+    phase_plot=axes_x[2, 0],
+    inv_plot=axes_x[3, 0],
+    fft_amplitude_plot=axes_x[1, 1],
+    fft_phase_plot=axes_x[2, 1],
+    fft_inv_plot=axes_x[3, 1],
+    np_amplitude_plot=axes_np[0, 0],
+    np_phase_plot=axes_np[0, 1],
 )
 
 plot(
     s=s1,
-    fn_plot=plt.subplot2grid((7, 4), (0, 1)),
-    amplitude_plot=plt.subplot2grid((7, 4), (1, 1)),
-    phase_plot=plt.subplot2grid((7, 4), (2, 1)),
-    inv_plot=plt.subplot2grid((7, 4), (3, 1)),
-    fft_amplitude_plot=plt.subplot2grid((7, 4), (4, 1)),
-    fft_phase_plot=plt.subplot2grid((7, 4), (5, 1)),
-    fft_inv_plot=plt.subplot2grid((7, 4), (6, 1)),
-    np_amplitude_plot=plt.subplot2grid((7, 4), (2, 3)),
-    np_phase_plot=plt.subplot2grid((7, 4), (3, 3)),
+    fn_plot=axes_y[0, 0],
+    amplitude_plot=axes_y[1, 0],
+    phase_plot=axes_y[2, 0],
+    inv_plot=axes_y[3, 0],
+    fft_amplitude_plot=axes_y[1, 1],
+    fft_phase_plot=axes_y[2, 1],
+    fft_inv_plot=axes_y[3, 1],
+    np_amplitude_plot=axes_np[1, 0],
+    np_phase_plot=axes_np[1, 1],
 )
 
-
-lin_conv_plot = plt.subplot2grid((7, 4), (0, 2))
+lin_conv_plot = axes_cor[0, 0]
 lin_conv_plot.plot(np.arange(2 * len(t) - 1) * sample_rate, lin_convolute(s0, s1))
 lin_conv_plot.set_title("Свертка (линейная)")
 
-fft_conv_plot = plt.subplot2grid((7, 4), (2, 2))
+fft_conv_plot = axes_cor[0, 1]
 fft_conv_plot.plot(np.arange(2 * len(t) - 1) * sample_rate, fft_convolute(s0, s1))
 fft_conv_plot.set_title("Свертка (БПФ)")
 
-lin_corr_plot = plt.subplot2grid((7, 4), (4, 2))
+lin_corr_plot = axes_cor[1, 0]
 lin_corr_plot.plot(t, correlation(s0, s1))
 lin_corr_plot.set_title("Корреляция (прямая)")
 
-fft_corr_plot = plt.subplot2grid((7, 4), (6, 2))
+fft_corr_plot = axes_cor[1, 1]
 fft_corr_plot.plot(t, fft_correlation(s0, s1))
 fft_corr_plot.set_title("Корреляция (БПФ)")
 
-np_conv_plot = plt.subplot2grid((7, 4), (4, 3))
+np_conv_plot = axes_np[2, 0]
 np_conv_plot.plot(np.arange(2 * len(t) - 1) * sample_rate, np.convolve(s0, s1, mode="full"))
 np_conv_plot.set_title("Свертка (numpy)")
 
-np_corr_plot = plt.subplot2grid((7, 4), (5, 3))
+np_corr_plot = axes_np[2, 1]
 np_corr_plot.plot(t, np.correlate(s0, s1, mode="same"))
 np_corr_plot.set_title("Корреляция (numpy)")
 
