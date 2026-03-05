@@ -2,6 +2,7 @@ from matplotlib.axes import Axes
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
+from scipy.io import wavfile
 matplotlib.rcParams['figure.figsize'] = (15, 20)
 
 def compute_dft(input_signal):
@@ -13,7 +14,6 @@ def compute_dft(input_signal):
       imag_part = 0
       
       for n in range(N):
-          
           angle = (2 * np.pi * k * n) / N
           real_part += input_signal[n] * np.cos(angle)
           imag_part -= input_signal[n] * np.sin(angle)
@@ -164,10 +164,10 @@ phix = 0
 fy0 = 440
 ay = [1, 0.5, 0.3, 0.1]
 hy = [1, 2, 3, 5]
-phiy=0
+phiy = 0
 
-sample_rate = 44100
-duration = 0.01
+sample_rate = 5000
+duration = 0.02
 
 t = np.linspace(0, duration, int(duration * sample_rate))
 s0 = np.zeros_like(t)
@@ -177,8 +177,6 @@ for i in range(len(ax)):
     s0 += ax[i] * np.sin(2 * np.pi * hx[i] * fx0 * t + phix)
 for i in range(len(ay)):
     s1 += ay[i] * np.sin(2 * np.pi * hy[i] * fy0 * t + phiy)
-
-# fig, subplots = plt.subplots(nrows=7, ncols=3)
 
 def plot(
         s,
