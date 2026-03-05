@@ -1,6 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def get_phase_spectrum(dft_result):
+    phases = []
+    for x in dft_result:
+        phase = np.atan2(x.imag, x.real)
+        phases.append(phase)
+    return phases
+
 def freq(n, d=1.0):
     val = 1.0 / (n * d)
     results = [0] * n
@@ -21,6 +28,18 @@ def custom_freqz(b, a, fs, num_points=8000):
     for k in range(len(a)):
         den += a[k] * np.exp(-1j * w * k)
     return f, np.abs(num / den)
+
+def smt(x):
+    m = 35
+    b_sma = np.ones(m) / m
+    a_sma = np.array([1.0])
+    filtered_sma = np.zeros_like(x)
+    for n in range(len(filtered_sma) - m):
+        for j in range(m):
+            if n + j < len(x):
+                filtered_sma[n] += x[n + j]
+        filtered_sma[n] /= m
+    return filtered_sma
 
 def create_hpf_rect(fc, fs, N):
     if N % 2 == 0: N += 1
@@ -75,16 +94,6 @@ x = np.zeros_like(t)
 for i in range(len(ax)):
     x += ax[i] * np.sin(2 * np.pi * hx[i] * fx0 * t + phix)
 
-m = 35
-b_sma = np.ones(m) / m
-a_sma = np.array([1.0])
-filtered_sma = np.zeros_like(x)
-for n in range(len(filtered_sma)):
-    for j in range(m):
-        if n + j < len(x):
-            filtered_sma[n] += x[n + j]
-    filtered_sma[n] /= m
-
 fc_hp = 800
 N_hp = 51
 b_hpf = create_hpf_rect(fc_hp, sample_rate, N_hp)
@@ -97,51 +106,80 @@ b_bpf, a_bpf = create_iir_bpf(f0_bpf, bw_bpf, sample_rate)
 filtered_bpf = apply_iir(b_bpf, a_bpf, x)
 
 fftx = np.fft.fft(x)
-ffts_sma = np.fft.fft(filtered_sma)
-ffts_hpf = np.fft.fft(filtered_hpf)
-ffts_bpf = np.fft.fft(filtered_bpf)
+# ffts_sma = np.fft.fft(filtered_sma)
+# ffts_hpf = np.fft.fft(filtered_hpf)
+# ffts_bpf = np.fft.fft(filtered_bpf)
 frequencies = freq(len(x), 1 / sample_rate)
 
-fig, axes = plt.subplots(3, 3, figsize=(18, 12))
+# fig, axes = plt.subplots(3, 3, figsize=(18, 12))
 
-axes[0, 0].plot(t, x, label="Оригинал", alpha=0.5)
-axes[0, 0].plot(t, filtered_sma, label="SMA", linewidth=2)
-axes[0, 0].set_title(f"SMA (m={m})")
+fig, axes = plt.subplots(3, 3, figsize=(12, 6))
+axes[0, 0].plot(t[:len(x) // 2], x[:len(x) // 2])
+axes[0, 0].set_title("Оригинал")
+axes[0, 1].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2])
+axes[0, 1].set_title("Амплитудный спектр")
+axes[0, 2].plot(frequencies[:len(x)//2], get_phase_spectrum(fftx)[:len(x)//2])
+axes[0, 2].set_title("Фазовый спектр")
+fig.show()
 
-axes[0, 1].plot(t, x, label="Оригинал", alpha=0.5)
-axes[0, 1].plot(t, filtered_hpf, label="КИХ ФВЧ", linewidth=2, color='green')
-axes[0, 1].set_title(f"КИХ ФВЧ (fc={fc_hp}Гц)")
+x1 = np.copy(x)
+x1 += np.sin(2 * np.pi * 4000 * t)
+fftx1 = np.fft.fft(x)
+axes[1, 0].plot(t[:len(x1) // 2], x1[:len(x1) // 2])
+axes[1, 0].set_title("Сигнал с помехой (4 кГц)")
+axes[1, 1].plot(frequencies[:len(x)//2], np.abs(fftx1)[:len(x)//2])
+axes[1, 1].set_title("Амплитудный спектр")
+axes[1, 2].plot(frequencies[:len(x)//2], get_phase_spectrum(fftx1)[:len(x)//2])
+axes[1, 2].set_title("Фазовый спектр")
 
-axes[0, 2].plot(t, x, label="Оригинал", alpha=0.5)
-axes[0, 2].plot(t, filtered_bpf, label="БИХ ПФ", linewidth=2, color='orange')
-axes[0, 2].set_title(f"БИХ ПФ (f0={f0_bpf}Гц, BW={bw_bpf}Гц)")
 
-# Спектры
-axes[1, 0].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2], label="Оригинал")
-axes[1, 0].plot(frequencies[:len(x)//2], np.abs(ffts_sma)[:len(x)//2], label="SMA")
+filtered_x1 = smt(np.copy(x1))
+fftfx1 = np.fft.fft(filtered_x1)
+axes[2, 0].plot(t[:len(x1) // 2], filtered_x1[:len(x1) // 2])
+axes[2, 0].set_title("Отфильтрованный сигнал")
+axes[2, 1].plot(frequencies[:len(x)//2], np.abs(fftfx1)[:len(x)//2])
+axes[2, 1].set_title("Амплитудный спектр")
+axes[2, 2].plot(frequencies[:len(x)//2], get_phase_spectrum(fftfx1)[:len(x)//2])
+axes[2, 2].set_title("Фазовый спектр")
 
-axes[1, 1].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2], label="Оригинал")
-axes[1, 1].plot(frequencies[:len(x)//2], np.abs(ffts_hpf)[:len(x)//2], label="КИХ ФВЧ", color='green')
+# axes[0, 0].plot(t, x, label="Оригинал", alpha=0.5)
+# axes[0, 0].plot(t, filtered_sma, label="SMA", linewidth=2)
+# axes[0, 0].set_title(f"SMA (m={m})")
 
-axes[1, 2].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2], label="Оригинал")
-axes[1, 2].plot(frequencies[:len(x)//2], np.abs(ffts_bpf)[:len(x)//2], label="БИХ ПФ", color='orange')
+# axes[0, 1].plot(t, x, label="Оригинал", alpha=0.5)
+# axes[0, 1].plot(t, filtered_hpf, label="КИХ ФВЧ", linewidth=2, color='green')
+# axes[0, 1].set_title(f"КИХ ФВЧ (fc={fc_hp}Гц)")
 
-# АЧХ
-f_sma, h_sma = custom_freqz(b_sma, a_sma, sample_rate)
-axes[2, 0].plot(f_sma, h_sma, color='red')
-axes[2, 0].set_title("АЧХ SMA")
+# axes[0, 2].plot(t, x, label="Оригинал", alpha=0.5)
+# axes[0, 2].plot(t, filtered_bpf, label="БИХ ПФ", linewidth=2, color='orange')
+# axes[0, 2].set_title(f"БИХ ПФ (f0={f0_bpf}Гц, BW={bw_bpf}Гц)")
 
-f_hpf, h_hpf = custom_freqz(b_hpf, a_hpf, sample_rate)
-axes[2, 1].plot(f_hpf, h_hpf, color='blue')
-axes[2, 1].set_title("АЧХ КИХ ФВЧ")
+# # Спектры
+# axes[1, 0].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2], label="Оригинал")
+# axes[1, 0].plot(frequencies[:len(x)//2], np.abs(ffts_sma)[:len(x)//2], label="SMA")
 
-f_bpf, h_bpf = custom_freqz(b_bpf, a_bpf, sample_rate)
-axes[2, 2].plot(f_bpf, h_bpf, color='orange')
-axes[2, 2].set_title("АЧХ БИХ ПФ")
+# axes[1, 1].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2], label="Оригинал")
+# axes[1, 1].plot(frequencies[:len(x)//2], np.abs(ffts_hpf)[:len(x)//2], label="КИХ ФВЧ", color='green')
 
-for ax_item in axes.flat:
-    ax_item.grid(True)
-    ax_item.legend(fontsize='small')
+# axes[1, 2].plot(frequencies[:len(x)//2], np.abs(fftx)[:len(x)//2], label="Оригинал")
+# axes[1, 2].plot(frequencies[:len(x)//2], np.abs(ffts_bpf)[:len(x)//2], label="БИХ ПФ", color='orange')
+
+# # АЧХ
+# f_sma, h_sma = custom_freqz(b_sma, a_sma, sample_rate)
+# axes[2, 0].plot(f_sma, h_sma, color='red')
+# axes[2, 0].set_title("АЧХ SMA")
+
+# f_hpf, h_hpf = custom_freqz(b_hpf, a_hpf, sample_rate)
+# axes[2, 1].plot(f_hpf, h_hpf, color='blue')
+# axes[2, 1].set_title("АЧХ КИХ ФВЧ")
+
+# f_bpf, h_bpf = custom_freqz(b_bpf, a_bpf, sample_rate)
+# axes[2, 2].plot(f_bpf, h_bpf, color='orange')
+# axes[2, 2].set_title("АЧХ БИХ ПФ")
+
+# for ax_item in axes.flat:
+#     ax_item.grid(True)
+#     ax_item.legend(fontsize='small')
 
 plt.tight_layout()
 plt.show()
